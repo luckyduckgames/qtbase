@@ -842,7 +842,9 @@ QCompleterPrivate::QCompleterPrivate()
       sorting(QCompleter::UnsortedModel),
       wrap(true),
       eatFocusOut(true),
-      hiddenBecauseNoMatch(false)
+      hiddenBecauseNoMatch(false),
+      enableTabStop(false),
+      tabStopChar('.')
 {
 }
 
@@ -889,10 +891,15 @@ void QCompleterPrivate::_q_completionSelected(const QItemSelection& selection)
     _q_complete(index, true);
 }
 
-void QCompleterPrivate::_q_complete(QModelIndex index, bool highlighted)
+void QCompleterPrivate::_q_complete(QModelIndex index, bool highlighted, bool isTab, bool* shouldHide)
 {
     Q_Q(QCompleter);
     QString completion;
+    if (shouldHide) {
+        (*shouldHide) = true;
+    }
+
+    bool callActivatedPartial = false;
 
     if (!index.isValid() || (!proxy->showAll && (index.row() >= proxy->engine->matchCount()))) {
         completion = prefix;
@@ -917,14 +924,30 @@ void QCompleterPrivate::_q_complete(QModelIndex index, bool highlighted)
                 completion += QDir::separator();
         }
 #endif
+
+        if (enableTabStop && isTab && proxy->engine->matchCount() > 1) {
+            int nextDotIndex = completion.indexOf(tabStopChar, prefix.length());
+
+            if (nextDotIndex > 0) {
+                completion = prefix + completion.mid(prefix.length(), nextDotIndex - prefix.length() + 1);
+                if (shouldHide) {
+                    (*shouldHide) = false;
+                }
+                callActivatedPartial = true;
+            }
+        }
     }
 
     if (highlighted) {
         emit q->highlighted(index);
         emit q->highlighted(completion);
     } else {
-        emit q->activated(index);
-        emit q->activated(completion);
+        if (callActivatedPartial) {
+            emit q->partialActivated(completion);
+        } else {
+            emit q->activated(index);
+            emit q->activated(completion);
+        }
     }
 }
 
@@ -1441,9 +1464,18 @@ bool QCompleter::eventFilter(QObject *o, QEvent *e)
         case Qt::Key_Return:
         case Qt::Key_Enter:
         case Qt::Key_Tab:
-            d->popup->hide();
-            if (curIndex.isValid())
-                d->_q_complete(curIndex);
+            if (curIndex.isValid()) {
+                bool shouldHide = false;
+                d->_q_complete(curIndex, false, key == Qt::Key_Tab, &shouldHide);
+                if (shouldHide) {
+                    d->popup->hide();
+                }
+                else {
+                    return false;
+                }
+            } else {
+                d->popup->hide();
+            }
             break;
 
         case Qt::Key_F4:
@@ -1782,6 +1814,38 @@ QString QCompleter::completionPrefix() const
     Q_D(const QCompleter);
     return d->prefix;
 }
+
+
+
+
+void QCompleter::setTabStopEnabled(bool enable)
+{
+    Q_D(QCompleter);
+    d->enableTabStop = enable;
+}
+
+bool QCompleter::tabStopEnabled() const
+{
+    Q_D(const QCompleter);
+    return d->enableTabStop;
+}
+
+
+
+void QCompleter::setTabStopChar(QChar tabStopChar)
+{
+    Q_D(QCompleter);
+    d->tabStopChar = tabStopChar;
+}
+
+QChar QCompleter::tabStopChar() const
+{
+    Q_D(const QCompleter);
+    return d->tabStopChar;
+}
+
+
+
 
 /*!
     Returns the model index of the current completion in the completionModel().

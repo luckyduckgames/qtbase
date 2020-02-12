@@ -134,6 +134,11 @@ public:
 
     QString completionPrefix() const;
 
+    void setTabStopEnabled(bool enable);
+    bool tabStopEnabled() const;
+    void setTabStopChar(QChar tabStopChar);
+    QChar tabStopChar() const;
+
 public Q_SLOTS:
     void setCompletionPrefix(const QString &prefix);
     void complete(const QRect& rect = QRect());
@@ -148,6 +153,7 @@ protected:
     bool event(QEvent *) override;
 
 Q_SIGNALS:
+    void partialActivated(const QString& text);
     void activated(const QString &text);
     void activated(const QModelIndex &index);
     void highlighted(const QString &text);

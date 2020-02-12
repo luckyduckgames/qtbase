@@ -90,13 +90,15 @@ public:
     int maxVisibleItems;
     QCompleter::ModelSorting sorting;
     bool wrap;
+    bool enableTabStop;
+    QChar tabStopChar;
 
     bool eatFocusOut;
     QRect popupRect;
     bool hiddenBecauseNoMatch;
 
     void showPopup(const QRect&);
-    void _q_complete(QModelIndex, bool = false);
+    void _q_complete(QModelIndex, bool highlighted = false, bool isTab = false, bool* shouldHide = nullptr);
     void _q_completionSelected(const QItemSelection&);
     void _q_autoResizePopup();
     void _q_fileSystemModelDirectoryLoaded(const QString &path);
